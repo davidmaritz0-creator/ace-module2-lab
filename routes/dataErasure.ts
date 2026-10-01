@@ -101,19 +101,25 @@ router.post('/', (req: Request<Record<string, unknown>, Record<string, unknown>,
       }
 
       if (req.body.layout) {
-        const filePath: string = path.resolve(req.body.layout).toLowerCase()
-        const isForbiddenFile: boolean = (filePath.includes('ftp') || filePath.includes('ctf.key') || filePath.includes('encryptionkeys'))
+        const layoutParam: string = typeof req.body.layout === 'string' ? req.body.layout.trim() : ''
+        const allowedDirectory: string = path.resolve('views').toLowerCase()
+        const resolvedPath: string = path.resolve(layoutParam).toLowerCase()
+        const resolvedInViews: string = path.resolve(allowedDirectory, layoutParam).toLowerCase()
+        const isPathInViews: boolean = Boolean(layoutParam) && (resolvedPath.startsWith(allowedDirectory + path.sep) || resolvedInViews.startsWith(allowedDirectory + path.sep))
+        const isForbiddenFile: boolean = !isPathInViews ||
+          resolvedPath.includes('ftp') ||
+          resolvedPath.includes('ctf.key') ||
+          resolvedPath.includes('encryptionkeys')
         if (!isForbiddenFile) {
           res.render('dataErasureResult', {
             ...req.body,
             ...themeVars
           }, (error, html) => {
             if (!html || error) {
-              next(new Error(error.message))
+              next(new Error(error?.message ?? 'Render error'))
             } else {
-              const sendlfrResponse: string = html.slice(0, 100) + '......'
-              res.send(sendlfrResponse)
-              challengeUtils.solveIf(challenges.lfrChallenge, () => { return true })
+              res.send(html)
+              challengeUtils.solveIf(challenges.lfrChallenge, () => { return false })
             }
           })
         } else {
